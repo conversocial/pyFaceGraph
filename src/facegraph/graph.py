@@ -6,6 +6,7 @@ import urllib2 as default_urllib2
 import httplib as default_httplib
 import traceback
 
+from facegraph.api import RECOVERABLE_FACEBOOK_ERRORS
 from facegraph.url_operations import (add_path, get_host,
         add_query_params, update_query_params, get_path)
 
@@ -20,8 +21,6 @@ __all__ = ['Graph']
 
 log = logging.getLogger('pyfacegraph')
 
-# Facebook occasionally gives this back instead of a valid json response
-FACEBOOK_INTERNAL_ERROR_RESPONSE = 'recv() failed: Connection reset by peer'
 
 class Graph(object):
 
@@ -354,17 +353,14 @@ class Graph(object):
                 if timeout:
                     kwargs = {'timeout': timeout}
                 conn = urllib2.urlopen(url, data=data, **kwargs)
-                content = conn.read()
-                if content == FACEBOOK_INTERNAL_ERROR_RESPONSE:
-                    raise FacebookInternalException
-                return content
+                return conn.read()
             except urllib2.HTTPError, e:
                 error = e.fp.read()
-                if error == FACEBOOK_INTERNAL_ERROR_RESPONSE and attempt < retries:
+                if error in RECOVERABLE_FACEBOOK_ERRORS and attempt < retries:
                     attempt += 1
                 else:
                     return error
-            except (httplib.BadStatusLine, IOError, FacebookInternalException):
+            except (httplib.BadStatusLine, IOError):
                 if attempt < retries:
                     attempt += 1
                 else:
@@ -404,6 +400,3 @@ class GraphException(Exception):
             s +=  ", (%s)" % self.code
         return s
 
-class FacebookInternalException(Exception):
-    def __str__(self):
-        return "Facebook responded with '%s'" % FACEBOOK_INTERNAL_ERROR_RESPONSE

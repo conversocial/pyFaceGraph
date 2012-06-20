@@ -5,6 +5,12 @@ from simplejson.decoder import JSONDecodeError
 
 FB_READ_TIMEOUT = 180
 
+# Facebook occasionally gives these back instead of a valid json response
+RECOVERABLE_FACEBOOK_ERRORS = {
+    'recv() failed: Connection reset by peer',
+    'Got EOF while waiting for outstanding responses',
+}
+
 class Api:
     
     def __init__(self, access_token=None, request=None, cookie=None, app_id=None, stack=None,
@@ -92,7 +98,10 @@ class Api:
                     break
                 except self.urllib2.HTTPError, e:
                     response = e.fp.read()
-                    break
+                    if response in RECOVERABLE_FACEBOOK_ERRORS and attempt < _retries:
+                        attempt += 1
+                    else:
+                        break
                 except (self.httplib.BadStatusLine, IOError):
                     if attempt < _retries:
                         attempt += 1
