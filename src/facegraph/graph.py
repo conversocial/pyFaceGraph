@@ -282,6 +282,8 @@ class Graph(object):
         crlf = '\r\n'
         boundary = "graphBoundary"
 
+        # SSH tunnel settings
+        tunnel_args = kwargs.pop('tunnel', ())
         # UTF8 params
         utf8_kwargs = dict([(k, v.encode('UTF-8')) for (k,v) in kwargs.iteritems() if k != 'file' and v is not None])
 
@@ -293,11 +295,11 @@ class Graph(object):
             body.append(str(v))
 
         # Add raw data
-        file = kwargs.get('file')
-        if file:
-            file.open()
-            data = file.read()
-            file.close()
+        file_ = kwargs.get('file')
+        if file_:
+            file_.open()
+            data = file_.read()
+            file_.close()
 
             body.append("--"+boundary)
             body.append('Content-Disposition: form-data; filename="facegraphfile.png"')
@@ -313,7 +315,11 @@ class Graph(object):
         kwargs = {}
         if timeout:
             kwargs = {'timeout': timeout}
-        r = httplib.HTTPSConnection(get_host(url), **kwargs)
+        if tunnel_args:
+            r = httplib.HTTPSConnection(*tunnel_args, **kwargs)
+            #r.set_tunnel(get_host(url))
+        else:
+            r = httplib.HTTPSConnection(get_host(url), **kwargs)
         headers = {'Content-Type': 'multipart/form-data; boundary=%s' % boundary,
                    'Content-Length': str(len(body)),
                    'MIME-Version': '1.0'}
