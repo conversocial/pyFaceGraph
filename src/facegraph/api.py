@@ -1,6 +1,7 @@
 import socket
-import ujson as json
+import simplejson
 from urllib import urlencode, unquote
+from simplejson.decoder import JSONDecodeError
 
 FB_READ_TIMEOUT = 180
 
@@ -111,8 +112,8 @@ class Api:
 
     def __process_response(self, response, params=None):
         try:
-            data = json.loads(response)
-        except ValueError:
+            data = simplejson.loads(response)
+        except JSONDecodeError:
             data = response
         try:
             if 'error_code' in data:
@@ -221,7 +222,7 @@ class Api:
             response = self.urllib2.urlopen(url, timeout=self.timeout)
         except self.urllib2.HTTPError, e:
             response = e.fp
-        return json.load(response)
+        return simplejson.load(response)
     
     def verify_token(self, tries=1):
         url = "https://graph.facebook.com/me?access_token=%s" % self.access_token

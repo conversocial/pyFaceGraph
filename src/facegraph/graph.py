@@ -11,7 +11,7 @@ from facegraph.url_operations import (add_path, get_host,
         add_query_params, update_query_params, get_path)
 
 import bunch
-import ujson as json
+import simplejson as json
 from functools import partial
 
 p = "^\(#(\d+)\)"
@@ -399,3 +399,4 @@ class GraphException(Exception):
         if self.code:
             s +=  ", (%s)" % self.code
         return s
+
