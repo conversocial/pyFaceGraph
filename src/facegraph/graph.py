@@ -14,6 +14,12 @@ import bunch
 import simplejson as json
 from functools import partial
 
+import eventlet
+requests = eventlet.import_patched('requests')
+
+requests.defaults.defaults['pool_maxsize'] = 100
+session = requests.session(headers={'Accept-encoding': 'gzip'})
+
 p = "^\(#(\d+)\)"
 code_re = re.compile(p)
 
@@ -352,15 +358,22 @@ class Graph(object):
                 kwargs = {}
                 if timeout:
                     kwargs = {'timeout': timeout}
-                conn = urllib2.urlopen(url, data=data, **kwargs)
-                return conn.read()
-            except urllib2.HTTPError, e:
-                error = e.fp.read()
+
+                if data:
+                    response = session.post(url, data=data, **kwargs)
+                else:
+                    response = session.get(url, **kwargs)
+
+                response.raise_for_status()
+                return response.content
+
+            except requests.HTTPError:
+                error = response.content
                 if error in RECOVERABLE_FACEBOOK_ERRORS and attempt < retries:
                     attempt += 1
                 else:
                     return error
-            except (httplib.BadStatusLine, IOError):
+            except requests.RequestException:
                 if attempt < retries:
                     attempt += 1
                 else:
