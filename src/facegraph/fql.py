@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 
-import urllib2
-
 import bunch
 import simplejson as json
 from graph import GraphException
 from url_operations import add_path, update_query_params
+
+import eventlet
+requests = eventlet.import_patched('requests')
+
+requests.defaults.defaults['pool_maxsize'] = 500
+session = requests.session(headers={'Accept-encoding': 'gzip'}, prefetch=True)
 
 class FQL(object):
     
@@ -120,8 +124,5 @@ class FQL(object):
     
     @staticmethod
     def fetch(url, data=None):
-        conn = urllib2.urlopen(url, data=data)
-        try:
-            return conn.read()
-        finally:
-            conn.close()
+        response = session.get(url, data=data)
+        return response.content

@@ -17,8 +17,8 @@ from functools import partial
 import eventlet
 requests = eventlet.import_patched('requests')
 
-requests.defaults.defaults['pool_maxsize'] = 100
-session = requests.session(headers={'Accept-encoding': 'gzip'})
+requests.defaults.defaults['pool_maxsize'] = 500
+session = requests.session(headers={'Accept-encoding': 'gzip'}, prefetch=True)
 
 p = "^\(#(\d+)\)"
 code_re = re.compile(p)
