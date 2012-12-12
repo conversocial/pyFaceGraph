@@ -241,6 +241,9 @@ class Api:
         else:
             return False
 
+    def __unicode__(self):
+        return "Facebook API. Method stack: {method}".format(method=self.__method())
+
 class ApiException(Exception):
     def __init__(self, code, message, args=None, params=None, api=None, method=None):
         Exception.__init__(self)
