@@ -12,6 +12,7 @@ from facegraph.url_operations import (add_path, get_host,
 
 import bunch
 import simplejson as json
+from simplejson.decoder import JSONDecodeError
 from functools import partial
 
 import eventlet
