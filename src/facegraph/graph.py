@@ -371,7 +371,7 @@ class Graph(object):
                 if error in RECOVERABLE_FACEBOOK_ERRORS and attempt < retries:
                     attempt += 1
                 else:
-                    return error
+                    return json.loads(error)
             except requests.RequestException:
                 if attempt < retries:
                     attempt += 1
