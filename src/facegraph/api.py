@@ -118,14 +118,14 @@ class Api:
         except JSONDecodeError:
             data = response
         except ValueError:
-                e = ApiException(code=None,
-                                 message='Could not decode response',
-                                 method=self.__method(), 
-                                 params=params,
-                                 api=self)
+            e = ApiException(code=None,
+                             message='Could not decode response',
+                             method=self.__method(), 
+                             params=params,
+                             api=self)
 
         try:
-            if 'error_code' in data:
+            if not e and 'error_code' in data:
                 e = ApiException(code=int(data.get('error_code')),
                                  message=data.get('error_msg'),
                                  method=self.__method(), 
