@@ -111,10 +111,19 @@ class Api:
             return self.__process_response(response, params=kwargs)
 
     def __process_response(self, response, params=None):
+        e = None
+
         try:
             data = simplejson.loads(response)
         except JSONDecodeError:
             data = response
+        except ValueError:
+                e = ApiException(code=None,
+                                 message='Could not decode response',
+                                 method=self.__method(), 
+                                 params=params,
+                                 api=self)
+
         try:
             if 'error_code' in data:
                 e = ApiException(code=int(data.get('error_code')),
@@ -122,13 +131,15 @@ class Api:
                                  method=self.__method(), 
                                  params=params,
                                  api=self)
-                if self.err_handler:
-                    return self.err_handler(e=e)
-                else:
-                    raise e
-                                                
         except TypeError:
             pass
+
+        if e:
+            if self.err_handler:
+                return self.err_handler(e=e)
+            else:
+                raise e
+
         return data
 
     def __photo_upload(self, _retries=None, **kwargs):
