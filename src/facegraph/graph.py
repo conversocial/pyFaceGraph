@@ -6,7 +6,7 @@ import urllib2 as default_urllib2
 import httplib as default_httplib
 import traceback
 
-from facegraph.api import RECOVERABLE_FACEBOOK_ERRORS
+from facegraph.api import ApiException, RECOVERABLE_FACEBOOK_ERRORS
 from facegraph.url_operations import (add_path, get_host,
         add_query_params, update_query_params, get_path)
 
@@ -195,11 +195,11 @@ class Graph(object):
         if self.access_token:
             params['access_token'] = self.access_token
         url = update_query_params(self.url, params)
-        data = json.loads(self.fetch(url,
-                                     timeout=self.timeout,
-                                     retries=self.retries,
-                                     urllib2=self.urllib2,
-                                     httplib=self.httplib))
+        data = self.fetch(url, timeout=self.timeout,
+                               retries=self.retries,
+                               urllib2=self.urllib2,
+                               httplib=self.httplib)
+
         return self.process_response(data, params)
 
     def __iter__(self):
@@ -269,7 +269,7 @@ class Graph(object):
                             retries=self.retries,
                             data=urllib.urlencode(params))
 
-        data = json.loads(fetch())
+        data = fetch()
         return self.process_response(data, params, "post")
 
     def post_file(self, file, **params):
@@ -278,7 +278,7 @@ class Graph(object):
         params['file'] = file
         params['timeout'] = self.timeout
         params['httplib'] = self.httplib
-        data = json.loads(self.post_mime(self.url, **params))
+        data = self.post_mime(self.url, **params)
 
         return self.process_response(data, params, "post_file")
 
@@ -328,7 +328,8 @@ class Graph(object):
         attempt = 0
         while True:
             try:
-                return r.getresponse().read()
+                response = r.getresponse().read()
+                return json.loads(response)
             except (httplib.BadStatusLine, IOError):
                 if attempt < retries:
                     attempt += 1
@@ -351,7 +352,6 @@ class Graph(object):
         This method exists mainly for dependency injection purposes. By default
         it uses urllib2; you may override it and use an alternative library.
         """
-        conn = None
         attempt = 0
         while True:
             try:
@@ -365,8 +365,7 @@ class Graph(object):
                     response = session.get(url, **kwargs)
 
                 response.raise_for_status()
-                return response.content
-
+                return json.loads(response.content)
             except requests.HTTPError:
                 error = response.content
                 if error in RECOVERABLE_FACEBOOK_ERRORS and attempt < retries:
@@ -378,8 +377,13 @@ class Graph(object):
                     attempt += 1
                 else:
                     raise
-            finally:
-                conn and conn.close()
+            except JSONDecodeError:
+                if attempt < retries:
+                    attempt += 1
+                else:
+                    raise ApiException(code=None,
+                                       message='Could not decode response',
+                                       method=url)
 
     def __sentry__(self):
         """
