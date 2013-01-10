@@ -369,7 +369,11 @@ class Graph(object):
                 return json.loads(response.content)
             except requests.HTTPError:
                 error = response.content
-                if error in RECOVERABLE_FACEBOOK_ERRORS and attempt < retries:
+                can_retry = (
+                        error in RECOVERABLE_FACEBOOK_ERRORS
+                        or 'Sorry, something went wrong' in error
+                )
+                if can_retry and attempt < retries:
                     attempt += 1
                 else:
                     return json.loads(error)
