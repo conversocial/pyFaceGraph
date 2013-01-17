@@ -2,7 +2,34 @@ from unittest import TestCase
 from facegraph import graph
 from facegraph import url_operations as ops
 from facegraph.fql import FQL
-from mock import patch
+from mock import patch, Mock
+import httplib
+
+class CustomExceptionsTest(TestCase):
+    def _set_up_mock_httplib(self, desired_response):
+        mock_file = Mock()
+        mock_file.read = Mock(return_value=desired_response)
+
+        mock_r = Mock()
+
+        mock_getresponse = Mock(return_value=mock_file)
+        mock_r.getresponse = mock_getresponse
+
+        mock_httplib = Mock(spec=httplib)
+        mock_httplib.HTTPSConnection = Mock(return_value=mock_r)
+
+        return mock_httplib
+
+    def test_empty_response(self):
+        mock_httplib = self._set_up_mock_httplib('')
+        with self.assertRaises(graph.EmptyStringReturnedException):
+            graph.Graph.post_mime('url', httplib=mock_httplib)
+
+    def test_bad_json_response(self):
+        mock_httplib = self._set_up_mock_httplib('invalid')
+        with self.assertRaises(graph.WrappedJSONDecodeError):
+            graph.Graph.post_mime('url', httplib=mock_httplib)
+
 
 class UrlOperationsTests(TestCase):
     def test_get_path(self):
@@ -128,34 +155,6 @@ class GraphUrlTests(TestCase):
 
         expected = 'https://graph.facebook.com/path/path2'
         self.assertEquals(expected, self.graph['path']['path2'].url)
-
-    def test_update_params(self):
-        expected = 'https://graph.facebook.com/?a=b'
-        self.graph = self.graph & {'a': 'b'}
-        self.assertEquals(expected, self.graph.url)
-        expected += '&c=d'
-        self.assertEquals(expected, (self.graph & {'c': 'd'}).url)
-
-    def test_set_params(self):
-        expected = 'https://graph.facebook.com/?a=b'
-        self.graph = self.graph | {'a': 'b'}
-        self.assertEquals(expected, self.graph.url)
-
-        expected = 'https://graph.facebook.com/?a=c'
-        self.assertEquals(expected, (self.graph | {'a': 'c'}).url)
-
-        expected = 'https://graph.facebook.com/?a=b&c=d'
-        self.assertEquals(expected, (self.graph | {'c': 'd'}).url)
-
-    def test_fields(self):
-        expected = 'https://graph.facebook.com/?fields=a%2Cb'
-        self.graph = self.graph.fields('a', 'b')
-        self.assertEquals(expected, self.graph.url)
-
-    def test_ids(self):
-        expected = 'https://graph.facebook.com/?ids=a%2Cb'
-        self.graph = self.graph.ids('a', 'b')
-        self.assertEquals(expected, self.graph.url)
 
 
 class FQLTests(TestCase):

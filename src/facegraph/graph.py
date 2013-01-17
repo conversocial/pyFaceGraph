@@ -331,6 +331,11 @@ class Graph(object):
             try:
                 response = r.getresponse().read()
                 return json.loads(response)
+            except JSONDecodeError, e:
+                if len(e.doc) == 0:
+                    raise EmptyStringReturnedException(str(e))
+                else:
+                    raise WrappedJSONDecodeError(response, e)
             except (httplib.BadStatusLine, IOError):
                 if attempt < retries:
                     attempt += 1
@@ -421,4 +426,20 @@ class GraphException(Exception):
         if self.code:
             s +=  ", (%s)" % self.code
         return s
+
+class EmptyStringReturnedException(Exception):
+    pass
+
+class WrappedJSONDecodeError(Exception):
+    def __init__(self, response, json_decode_error):
+        self.json_decode_error = json_decode_error
+        # encode to ascii just in case it's anything exotic
+        self.response = response.encode('ascii', 'replace')
+
+    def __str__(self):
+        return "{e}: {r}".format(e=str(self.json_decode_error),
+                r=self.response)
+
+    def __repr__(self):
+        return str(self)
 
