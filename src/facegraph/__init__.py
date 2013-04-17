@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__version__ = '0.1.9'
+__version__ = '0.1.10'
 
 from facegraph.api import Api
 from facegraph.api import ApiException
