@@ -77,6 +77,7 @@ class Api:
             except AttributeError: pass
             utf8_kwargs[k] = v
         
+        url += '?'
         if self.access_token:
             url += 'access_token=%s&' % self.access_token        
         url += urlencode(utf8_kwargs)
