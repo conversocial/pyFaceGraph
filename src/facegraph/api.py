@@ -33,7 +33,7 @@ class Api:
         self.timeout = timeout
 
         socket.setdefaulttimeout(self.timeout)
-        
+
         if self.cookie:
             self.load_cookie()
         elif request:
@@ -64,7 +64,43 @@ class Api:
         We trigger __getitem__ here so that both self.method.name and self['method']['name'] work
         """
         return self[name]
+
+    def query(self, query):
+        return self._execute("https://graph.facebook.com/fql", q=query)
     
+    def _execute(self, url, _retries=None, **kwargs):
+        # UTF8
+        utf8_kwargs = {}
+        for (k,v) in kwargs.iteritems():
+            try:
+                v = v.encode('UTF-8')
+            except AttributeError: pass
+            utf8_kwargs[k] = v
+        
+        if self.access_token:
+            url += 'access_token=%s&' % self.access_token        
+        url += urlencode(utf8_kwargs)
+        
+        attempt = 0
+        while True:
+            try:
+                response = self.urllib2.urlopen(url, timeout=self.timeout).read()
+                break
+            except self.urllib2.HTTPError, e:
+                response = e.read()
+                if response in RECOVERABLE_FACEBOOK_ERRORS and attempt < _retries:
+                    attempt += 1
+                else:
+                    break
+            except (self.httplib.BadStatusLine, IOError):
+                if attempt < _retries:
+                    attempt += 1
+                else:
+                    raise
+
+        return self.__process_response(response, params=kwargs)
+
+
     def __call__(self, _retries=None, *args, **kwargs):
         """
         Executes an old REST api method using the stored method stack
@@ -77,39 +113,9 @@ class Api:
             # Custom overrides
             if method == "photos.upload":
                 return self.__photo_upload(**kwargs)            
-            
-            # UTF8
-            utf8_kwargs = {}
-            for (k,v) in kwargs.iteritems():
-                try:
-                    v = v.encode('UTF-8')
-                except AttributeError: pass
-                utf8_kwargs[k] = v
-            
             url = "https://api.facebook.com/method/%s?" % method
-            if self.access_token:
-                url += 'access_token=%s&' % self.access_token        
-            url += urlencode(utf8_kwargs)
+            return self._execute(url=url, _retries=_retries, **kwargs)
             
-            attempt = 0
-            while True:
-                try:
-                    response = self.urllib2.urlopen(url, timeout=self.timeout).read()
-                    break
-                except self.urllib2.HTTPError, e:
-                    response = e.fp.read()
-                    if response in RECOVERABLE_FACEBOOK_ERRORS and attempt < _retries:
-                        attempt += 1
-                    else:
-                        break
-                except (self.httplib.BadStatusLine, IOError):
-                    if attempt < _retries:
-                        attempt += 1
-                    else:
-                        raise
-
-            return self.__process_response(response, params=kwargs)
-
     def __process_response(self, response, params=None):
         e = None
 
