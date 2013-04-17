@@ -68,7 +68,7 @@ class Api:
     def query(self, query):
         return self._execute("https://graph.facebook.com/fql", q=query)
     
-    def _execute(self, url, _retries=None, **kwargs):
+    def _execute(self, fb_url, _retries=None, **kwargs):
         # UTF8
         utf8_kwargs = {}
         for (k,v) in kwargs.iteritems():
@@ -77,16 +77,16 @@ class Api:
             except AttributeError: pass
             utf8_kwargs[k] = v
         
-        if '?' not in url:
-            url += '?'
+        if '?' not in fb_url:
+            fb_url += '?'
         if self.access_token:
-            url += 'access_token=%s&' % self.access_token        
-        url += urlencode(utf8_kwargs)
+            fb_url += 'access_token=%s&' % self.access_token        
+        fb_url += urlencode(utf8_kwargs)
         
         attempt = 0
         while True:
             try:
-                response = self.urllib2.urlopen(url, timeout=self.timeout).read()
+                response = self.urllib2.urlopen(fb_url, timeout=self.timeout).read()
                 break
             except self.urllib2.HTTPError, e:
                 response = e.read()
@@ -116,7 +116,7 @@ class Api:
             if method == "photos.upload":
                 return self.__photo_upload(**kwargs)            
             url = "https://api.facebook.com/method/%s?" % method
-            return self._execute(url=url, _retries=_retries, **kwargs)
+            return self._execute(fb_url=url, _retries=_retries, **kwargs)
             
     def __process_response(self, response, params=None):
         e = None
