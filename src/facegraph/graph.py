@@ -18,8 +18,10 @@ from functools import partial
 import eventlet
 requests = eventlet.import_patched('requests')
 
-requests.defaults.defaults['pool_maxsize'] = 500
-session = requests.session(headers={'Accept-encoding': 'gzip'}, prefetch=True)
+session = requests.Session()
+session.headers['Accept-encoding'] = 'gzip'
+session.mount('http://', requests.adapters.HTTPAdapter(pool_connections=500, pool_maxsize=500))
+session.mount('https://', requests.adapters.HTTPAdapter(pool_connections=500, pool_maxsize=500))
 
 p = "^\(#(\d+)\)"
 code_re = re.compile(p)
