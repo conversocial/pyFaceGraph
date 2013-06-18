@@ -5,7 +5,6 @@ import glob
 import os
 import re
 
-from distribute_setup import use_setuptools; use_setuptools()
 from setuptools import setup, find_packages
 
 rel_file = lambda *args: os.path.join(os.path.dirname(os.path.abspath(__file__)), *args)
