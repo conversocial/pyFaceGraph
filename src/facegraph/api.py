@@ -133,12 +133,21 @@ class Api:
                              api=self)
 
         try:
-            if not e and 'error_code' in data:
-                e = ApiException(code=int(data.get('error_code')),
-                                 message=data.get('error_msg'),
-                                 method=self.__method(), 
-                                 params=params,
-                                 api=self)
+            if not e:
+                if 'error_code' in data:
+                    e = ApiException(code=int(data.get('error_code')),
+                                     message=data.get('error_msg'),
+                                     method=self.__method(),
+                                     params=params,
+                                     api=self)
+                if 'error' in data:
+                    err = data['error']
+                    e = ApiException(code=int(err.get('code')),
+                                     message=err.get('message'),
+                                     method=self.__method(),
+                                     params=params,
+                                     api=self)
+                    e.error_subcode = err.get('error_subcode')
         except TypeError:
             pass
 
