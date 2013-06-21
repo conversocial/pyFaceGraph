@@ -143,7 +143,7 @@ class Api:
                 if 'error' in data:
                     err = data['error']
                     e = ApiException(code=int(err.get('code')),
-                                     message=data.get('message'),
+                                     message=err.get('message'),
                                      method=self.__method(),
                                      params=params,
                                      api=self)
