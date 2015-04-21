@@ -16,7 +16,7 @@ from simplejson.decoder import JSONDecodeError
 from functools import partial
 
 import eventlet
-requests = eventlet.import_patched('requests')
+requests = eventlet.import_patched('requests.__init__')
 
 session = requests.Session()
 session.headers['Accept-encoding'] = 'gzip'

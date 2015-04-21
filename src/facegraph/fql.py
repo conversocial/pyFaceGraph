@@ -6,7 +6,7 @@ from graph import GraphException
 from url_operations import add_path, update_query_params
 
 import eventlet
-requests = eventlet.import_patched('requests')
+requests = eventlet.import_patched('requests.__init__')
 
 session = requests.Session()
 session.headers['Accept-encoding'] = 'gzip'
