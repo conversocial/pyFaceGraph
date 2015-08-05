@@ -17,11 +17,12 @@ from functools import partial
 
 import eventlet
 requests = eventlet.import_patched('requests.__init__')
+requests_adapters = eventlet.import_patched('requests.adapters')
 
 session = requests.Session()
 session.headers['Accept-encoding'] = 'gzip'
-session.mount('http://', requests.adapters.HTTPAdapter(pool_connections=500, pool_maxsize=500))
-session.mount('https://', requests.adapters.HTTPAdapter(pool_connections=500, pool_maxsize=500))
+session.mount('http://', requests_adapters.HTTPAdapter(pool_connections=500, pool_maxsize=500))
+session.mount('https://', requests_adapters.HTTPAdapter(pool_connections=500, pool_maxsize=500))
 
 p = "^\(#(\d+)\)"
 code_re = re.compile(p)
