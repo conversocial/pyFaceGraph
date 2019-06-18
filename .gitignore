@@ -3,7 +3,11 @@
 *.pyo
 *.sqlite3
 .DS_Store
+.eggs
+.idea
+.python-version
 build
 dist
 local_settings.py
 MANIFEST
+venv
