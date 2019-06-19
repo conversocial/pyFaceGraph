@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import socket
 import simplejson
 from urllib import urlencode, unquote
@@ -12,18 +14,19 @@ RECOVERABLE_FACEBOOK_ERRORS = {
 }
 
 class Api:
-    
-    def __init__(self, access_token=None, request=None, cookie=None, app_id=None, stack=None,
-                       err_handler=None, timeout=FB_READ_TIMEOUT, urllib2=None, httplib=None,
-                       retries=5):
-        
+
+    def __init__(self, access_token=None, app_secret=None, request=None, cookie=None, app_id=None,
+                       stack=None, err_handler=None, timeout=FB_READ_TIMEOUT, urllib2=None,
+                       httplib=None, retries=5):
+
         self.uid = None
         self.access_token = access_token
+        self.app_secret = app_secret
         self.stack = stack if stack else []
         self.cookie = cookie
         self.err_handler = err_handler
         self.retries = retries
-        
+
         if urllib2 is None:
             import urllib2
         self.urllib2 = urllib2
@@ -44,10 +47,10 @@ class Api:
 
     def __repr__(self):
         return '<FB(%r) at 0x%x>' % (self.__method(), id(self))
-    
+
     def __method(self):
         return u".".join(self.stack)
-    
+
     def __getitem__(self, name):
         """
         This method returns a new FB and allows us to chain attributes, e.g. fb.stream.publish
@@ -56,9 +59,11 @@ class Api:
         s = []
         s.extend(self.stack)
         s.append(name)
-        return self.__class__(stack=s, access_token=self.access_token, cookie=self.cookie, err_handler=self.err_handler,
-                              timeout=self.timeout, retries=self.retries, urllib2=self.urllib2, httplib=self.httplib)
-    
+        return self.__class__(stack=s, access_token=self.access_token, app_secret=self.app_secret,
+                              cookie=self.cookie, err_handler=self.err_handler,
+                              timeout=self.timeout, retries=self.retries, urllib2=self.urllib2,
+                              httplib=self.httplib)
+
     def __getattr__(self, name):
         """
         We trigger __getitem__ here so that both self.method.name and self['method']['name'] work
@@ -66,8 +71,13 @@ class Api:
         return self[name]
 
     def query(self, query):
-        return self._execute("https://graph.facebook.com/fql", q=query)
-    
+        params = {}
+        if self.access_token and self.app_secret:
+            params['appsecret_proof'] = get_appsecret_proof(
+                self.app_secret, self.access_token)
+        return self._execute(
+            "https://graph.facebook.com/fql", q=query, **params)
+
     def _execute(self, fb_url, _retries=None, **kwargs):
         # UTF8
         utf8_kwargs = {}
@@ -76,13 +86,13 @@ class Api:
                 v = v.encode('UTF-8')
             except AttributeError: pass
             utf8_kwargs[k] = v
-        
+
         if '?' not in fb_url:
             fb_url += '?'
         if self.access_token:
-            fb_url += 'access_token=%s&' % self.access_token        
+            fb_url += 'access_token=%s&' % self.access_token
         fb_url += urlencode(utf8_kwargs)
-        
+
         attempt = 0
         while True:
             try:
@@ -108,16 +118,16 @@ class Api:
         Executes an old REST api method using the stored method stack
         """
         _retries = _retries or self.retries
-        
+
         if len(self.stack)>0:
             kwargs.update({"format": "JSON"})
             method = self.__method()
             # Custom overrides
             if method == "photos.upload":
-                return self.__photo_upload(**kwargs)            
+                return self.__photo_upload(**kwargs)
             url = "https://api.facebook.com/method/%s?" % method
             return self._execute(fb_url=url, _retries=_retries, **kwargs)
-            
+
     def __process_response(self, response, params=None):
         e = None
 
@@ -128,7 +138,7 @@ class Api:
         except ValueError:
             e = ApiException(code=None,
                              message='Could not decode response',
-                             method=self.__method(), 
+                             method=self.__method(),
                              params=params,
                              api=self)
 
@@ -161,11 +171,11 @@ class Api:
 
     def __photo_upload(self, _retries=None, **kwargs):
         _retries = _retries or self.retries
-        
+
         body = []
         crlf = '\r\n'
         boundary = "conversocialBoundary"
-        
+
         # UTF8
         utf8_kwargs = {}
         for (k,v) in kwargs.iteritems():
@@ -173,41 +183,41 @@ class Api:
                 v = v.encode('UTF-8')
             except AttributeError: pass
             utf8_kwargs[k] = v
-        
+
         # Add args
         utf8_kwargs.update({'access_token': self.access_token})
         for (k,v) in utf8_kwargs.iteritems():
             if k=='photo': continue
             body.append("--"+boundary)
-            body.append('Content-Disposition: form-data; name="%s"' % k) 
+            body.append('Content-Disposition: form-data; name="%s"' % k)
             body.append('')
             body.append(str(v))
-        
+
         # Add raw image data
         photo = utf8_kwargs.get('photo')
         photo.open()
         data = photo.read()
         photo.close()
-        
+
         body.append("--"+boundary)
         body.append('Content-Disposition: form-data; filename="myfilewhichisgood.png"')
         body.append('Content-Type: image/png')
         body.append('')
         body.append(data)
-        
+
         body.append("--"+boundary+"--")
         body.append('')
-        
+
         body = crlf.join(body)
-                
+
         # Post to server
         r = self.httplib.HTTPSConnection('api.facebook.com', timeout=self.timeout)
         headers = {'Content-Type': 'multipart/form-data; boundary=%s' % boundary,
                    'Content-Length': str(len(body)),
                    'MIME-Version': '1.0'}
-        
+
         r.request('POST', '/method/photos.upload', body, headers)
-        
+
         attempt = 0
         while True:
             try:
@@ -219,8 +229,8 @@ class Api:
                 else:
                     raise
             finally:
-                r.close()            
-        
+                r.close()
+
     def check_cookie(self, request, app_id):
         """"
         Parses the fb cookie if present
@@ -251,18 +261,24 @@ class Api:
         except self.urllib2.HTTPError, e:
             response = e.fp
         return simplejson.load(response)
-    
+
     def verify_token(self, tries=1):
         url = "https://graph.facebook.com/me?access_token=%s" % self.access_token
+        if self.app_secret:
+            url += '&appsecret_proof=%s' % get_appsecret_proof(
+                self.app_secret, self.access_token)
         for n in range(tries):
             data = self.__fetch(url)
             if 'error' in data:
                 pass
             else:
                 return True
-        
+
     def exists(self, object_id):
         url = "https://graph.facebook.com/%s?access_token=%s" % (object_id, self.access_token)
+        if self.app_secret:
+            url += '&appsecret_proof=%s' % get_appsecret_proof(
+                self.app_secret, self.access_token)
         data = self.__fetch(url)
         if data:
             return True
@@ -282,10 +298,10 @@ class ApiException(Exception):
         self.params = params
         self.api = api
         self.method = method
-        
+
     def __repr__(self):
         return str(self)
-    
+
     def __str__(self):
         str = "%s, Method: %s" % (self.message, self.method)
         if self.params:
@@ -293,3 +309,8 @@ class ApiException(Exception):
         if self.code:
             str =  "(#%s) %s" % (self.code, str)
         return str
+
+
+def get_appsecret_proof(app_secret, token):
+    hmac_instance = hmac.new(app_secret, token, digestmod=hashlib.sha256)
+    return hmac_instance.hexdigest()
