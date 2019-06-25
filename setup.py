@@ -42,4 +42,5 @@ setup(
     package_dir      = {'': 'src'},
     install_requires = get_requirements(),
     extras_require   = get_extra_requirements(),
+    tests_require    = ['mock'],
 )

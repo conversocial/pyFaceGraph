@@ -6,7 +6,8 @@ import urllib2 as default_urllib2
 import httplib as default_httplib
 import traceback
 
-from facegraph.api import ApiException, RECOVERABLE_FACEBOOK_ERRORS
+from facegraph.api import (ApiException, get_appsecret_proof,
+        RECOVERABLE_FACEBOOK_ERRORS)
 from facegraph.url_operations import (add_path, get_host,
         add_query_params, update_query_params, get_path)
 
@@ -46,7 +47,8 @@ class Graph(object):
     To get started using the API, create a new `Graph` instance with an access
     token:
 
-        >>> g = Graph(access_token)  # Access token is optional.
+        >>> g = Graph(access_token, app_secret)  # Access token and app secret
+                                                 # are both optional.
         >>> g
         <Graph('https://graph.facebook.com/') at 0x...>
 
@@ -140,8 +142,9 @@ class Graph(object):
     API_ROOT = 'https://graph.facebook.com/'
     DEFAULT_TIMEOUT = 0 # No timeout as default
 
-    def __init__(self, access_token=None, err_handler=None, timeout=DEFAULT_TIMEOUT, retries=5, urllib2=None, httplib=None, **state):
+    def __init__(self, access_token=None, app_secret=None, err_handler=None, timeout=DEFAULT_TIMEOUT, retries=5, urllib2=None, httplib=None, **state):
         self.access_token = access_token
+        self.app_secret = app_secret
         self.err_handler = err_handler
         self.url = self.API_ROOT
         self.timeout = timeout
@@ -160,6 +163,7 @@ class Graph(object):
     def copy(self, **update):
         """Copy this Graph, optionally overriding some attributes."""
         return type(self)(access_token=self.access_token,
+                          app_secret=self.app_secret,
                           err_handler=self.err_handler,
                           timeout=self.timeout,
                           retries=self.retries,
@@ -198,6 +202,9 @@ class Graph(object):
 
         if self.access_token:
             params['access_token'] = self.access_token
+            if self.app_secret:
+                params['appsecret_proof'] = get_appsecret_proof(
+                    self.app_secret, self.access_token)
         url = update_query_params(self.url, params)
         data = self.fetch(url, timeout=self.timeout,
                                retries=self.retries,
@@ -254,6 +261,9 @@ class Graph(object):
 
         if self.access_token:
             params['access_token'] = self.access_token
+            if self.app_secret:
+                params['appsecret_proof'] = get_appsecret_proof(
+                    self.app_secret, self.access_token)
 
         if get_path(self.url).split('/')[-1] in ['photos']:
             params['timeout'] = self.timeout
@@ -279,6 +289,9 @@ class Graph(object):
     def post_file(self, file, **params):
         if self.access_token:
             params['access_token'] = self.access_token
+            if self.app_secret:
+                params['appsecret_proof'] = get_appsecret_proof(
+                    self.app_secret, self.access_token)
         params['file'] = file
         params['timeout'] = self.timeout
         params['httplib'] = self.httplib
